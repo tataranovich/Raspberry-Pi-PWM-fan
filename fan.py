@@ -1,11 +1,18 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import sys
+sys.path.append ( "/storage/.kodi/addons/virtual.rpi-tools/lib" )
 import RPi.GPIO as GPIO
 import json
 import time
 import os
-import sys
+import signal
+
+def doCleanup(signum, frame):
+  print("Graceful stop")
+  GPIO.cleanup()
+  sys.exit()
 
 # Configuration
 with open(os.path.join(sys.path[0], 'fan.json')) as f:
@@ -33,6 +40,10 @@ hyst = data['args']['hysteresis']
 # Setup GPIO pin
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(FAN_PIN, GPIO.OUT, initial=GPIO.LOW)
+
+signal.signal(signal.SIGINT, doCleanup)
+signal.signal(signal.SIGTERM, doCleanup)
+
 fan = GPIO.PWM(FAN_PIN, PWM_FREQ)
 fan.start(0)
 
@@ -46,6 +57,10 @@ fanSpeedOld = 0
 if(len(speedSteps) != len(tempSteps)):
     print("Numbers of temp steps and speed steps are different")
     exit(0)
+
+# Start FAN at full speed
+fan.ChangeDutyCycle(100)
+time.sleep(WAIT_TIME)
 
 try:
     while (1):
@@ -73,15 +88,16 @@ try:
 
             if((fanSpeed != fanSpeedOld)):
                 if((fanSpeed != fanSpeedOld) and ((fanSpeed >= FAN_MIN) or (fanSpeed == 0))):
+                    #print("Temperature: {}C, fan duty: {}".format(cpuTemp, fanSpeed))
                     fan.ChangeDutyCycle(fanSpeed)
                     fanSpeedOld = fanSpeed
 
         # Wait until next refresh
         time.sleep(WAIT_TIME)
 
+except SystemExit:
+    pass
 
-# If a keyboard interrupt occurs (ctrl + c), the GPIO is set to 0 and the program exits.
-except(KeyboardInterrupt):
-    print("Fan ctrl interrupted by keyboard")
-    GPIO.cleanup()
-    sys.exit()
+except:
+    print("Unexpected error: ", sys.exc_info()[0])
+    raise
