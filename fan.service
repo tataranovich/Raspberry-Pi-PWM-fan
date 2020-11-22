@@ -1,0 +1,12 @@
+[Unit]
+Description=PWM Fan Control
+After=kodi.service
+
+[Service]
+Type=simple
+User=root
+ExecStart= /usr/bin/python /storage/fan.py
+Restart=always
+
+[Install]
+WantedBy=default.target
